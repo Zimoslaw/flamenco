@@ -5,7 +5,7 @@ MPI_Datatype MPI_PAKIET_T;
 struct tagNames_t{
     const char *name;
     int tag;
-} tagNames[] = { { "finish", FINISH}, { "SYNC", SYNC}};
+} tagNames[] = { { "finish", FINISH}, { "REQ_SYNC", REQ_SYNC}, { "SYNC", SYNC}};
 
 const char const *tag2string( int tag )
 {
@@ -68,9 +68,9 @@ void incLamport(int ts)
 
 /* Dodanie procesu do kolejki
 ( kolejka, id procesu, timestamp ) */
-void putProcess(Process** queue, int pid, int timestamp, int type)
+void putProcess(Process **queue, int pid, int timestamp, int type)
 {
-    Process* p = (Process*) calloc(1, sizeof(Process));
+    Process *p = (Process*) calloc(1, sizeof(Process));
     p->id = pid;
     p->ts = timestamp;
     p->type = type;
@@ -80,7 +80,7 @@ void putProcess(Process** queue, int pid, int timestamp, int type)
         return;
     }
     
-    Process* current = *queue;
+    Process *current = *queue;
 
     if (p->id < current->id) {
         *queue = p;
@@ -104,10 +104,10 @@ void putProcess(Process** queue, int pid, int timestamp, int type)
 }
 
 // Czyszczenie kolejki
-void clearProcessQueue(Process** queue)
+void clearProcessQueue(Process **queue)
 {
-    Process* current = *queue;
-    Process* next = current->next;
+    Process *current = *queue;
+    Process *next = current->next;
 
     while(current != NULL) {
         next = current->next;
@@ -115,4 +115,46 @@ void clearProcessQueue(Process** queue)
         current = next;
     }
     *queue = NULL;
+}
+
+/* Dodanie pakietu do kolejki
+( kolejka, id nadawcy, timestamp, dane ) */
+void putPacket(Packet **queue, int src, int tag, int ts, int data)
+{
+    Packet *p = (Packet*) calloc(1, sizeof(Packet));
+    p->src = src;
+    p->tag = tag;
+    p->ts = ts;
+    p->data = data;
+
+    if (*queue == NULL) {
+        *queue = p;
+        return;
+    }
+    
+    Packet *current = *queue;
+
+    while (current->next != NULL) {
+        current = current->next;
+    }
+    p->next = current->next;
+    current->next = p;
+
+    return;
+}
+
+// Pobieranie pierwszego pakietu z kolejki
+Packet getFirstPacket(Packet **queue)
+{
+    Packet p;
+    p.src = (*queue)->src;
+    p.tag = (*queue)->tag;
+    p.ts =  (*queue)->ts;
+    p.data = (*queue)->data;
+
+    Packet *temp = (*queue)->next;
+    free(*queue);
+    *queue = temp;
+
+    return p;
 }

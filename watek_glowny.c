@@ -10,7 +10,15 @@ void mainLoop()
     int tag;
     int changes = 0; // locznik zmian stanów
 
-    int actorType = rank%2; // losowanie typu postaci
+    Packet currentPacket; // obecnie odczytywany pakiet
+
+    // losowanie typu postaci
+    int actorType = random()%100;
+    if (actorType >= 50)
+        actorType = TANCERKA;
+    else
+        actorType = GITARZYSTA;
+
 
     if (actorType == TANCERKA) {
 	    println("Tancerka gotowa");
@@ -20,31 +28,58 @@ void mainLoop()
 
     while (stan != Finish) {
         if (changes<MAX_STATE_CHANGES) {
+
+            // POBIERANIE DANYCH PAKIETU PIERWSZEGO W KOLEJCE
+            if (stan != Start && packetQueue != NULL) {
+                currentPacket = getFirstPacket(&packetQueue);
+
+                switch(currentPacket.tag) {
+                    case REQ_SYNC:
+                        changeState( SendSync );
+                    break;
+                    case SYNC:
+                        changeState( AddToQueue );
+                    break;
+                    default:
+                        changeState( Wait );
+                    break;
+                }
+            }
+
             // POCZĄTEK
             if (stan == Start) {
                 changes++;
 
-                // Dodaj siebie do kolejki
-                putProcess(&processQueue, rank, lamport, actorType);
+                println("Wysyłam żądanie o dane do wszystkich")
 
-                println("Wysyłam swoje dane do wszystkich")
-
-                // Wysyłanie SYNC do wszytkich
+                // Wysyłanie REQ_SYNC do wszytkich
                 for (int i = 0; i < size; i++) {
                     if (i == rank)
                         continue;
                     packet_t *pkt = malloc(sizeof(packet_t));
                     pkt->data = actorType;
                     pkt->ts = ++lamport;
-                    sendPacket(pkt, i, SYNC);
+                    sendPacket(pkt, i, REQ_SYNC);
                 }
                 changeState( Wait );
 	        }
+            // ODESYŁANIE INFORMACJ O SOBIE
+            if (stan == SendSync) {
+                changes++;
+
+                packet_t *pkt = malloc(sizeof(packet_t));
+                pkt->data = actorType;
+                pkt->ts = ++lamport;
+                sendPacket(pkt, currentPacket.src, SYNC);
+
+                changeState( Wait );
+            } 
             // DODANIE PROCESU ADRESATA DO KOLEJKI
             if (stan == AddToQueue) {
                 changes++;
 
-                debug("Dodałem proces %d do kolejki", pakiet.src);
+                putProcess(&processQueue, currentPacket.src, currentPacket.ts, currentPacket.data);
+                debug("Dodałem proces %d do kolejki", currentPacket.src);
 
                 // Sprawdzanie czy kolejka jest zakończona
                 int c = 0;
@@ -53,7 +88,9 @@ void mainLoop()
                     c++;
                     p = p->next;
                 }
-                if (c >= size) { // Tworzenie kolejki zakończone
+                if (c >= size - 1) { // Tworzenie kolejki zakończone
+                    // Dodaj siebie do kolejki
+                    putProcess(&processQueue, rank, lamport, actorType);
                     println("Kolejka stworzona");
                     changeState( Wait );
                 }

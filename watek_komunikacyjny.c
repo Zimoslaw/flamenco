@@ -12,16 +12,18 @@ void *startKomWatek(void *ptr)
 		debug("czekam na recv");
         MPI_Recv( &pakiet, 1, MPI_PAKIET_T, MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
 
-		incLamport(pakiet.ts);
+		incLamport(pakiet.ts); // inkrementacja zegara lamporta
+		putPacket(&packetQueue, pakiet.src, status.MPI_TAG, pakiet.ts, pakiet.data); // dodaj pakiet do kolejki
 
         switch ( status.MPI_TAG ) {
 	    case FINISH: 
             changeState( Finish );
 	    break;
-	    case SYNC: 
+		case REQ_SYNC:
+			debug("Dostałem pakiet REQ_SYNC od %d", pakiet.src);
+		break;
+	    case SYNC:
             debug("Dostałem pakiet SYNC od %d", pakiet.src);
-			putProcess(&processQueue, pakiet.src, pakiet.ts, pakiet.data);
-			changeState( AddToQueue );
 	    break;
 	    default:
 			changeState( Finish );

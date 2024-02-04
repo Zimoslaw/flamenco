@@ -21,9 +21,20 @@ typedef struct Process
     struct Process* next;
 } Process;
 
+// Typ pakietu w kolejce
+typedef struct Packet
+{
+    int src;
+    int tag;
+    int ts;
+    int data;
+    struct Packet* next;
+} Packet;
+
 /* Typy wiadomości */
 #define FINISH 999
-#define SYNC 100
+#define REQ_SYNC 100
+#define SYNC 101
 
 extern MPI_Datatype MPI_PAKIET_T;
 void inicjuj_typ_pakietu();

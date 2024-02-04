@@ -3,7 +3,8 @@
 #include "watek_komunikacyjny.h"
 
 int rank, size, lamport;
-Process* processQueue;
+Process *processQueue; // kolejka procesów
+Packet *packetQueue; // kolejka pakietów
 state_t stan=Start;
 packet_t pakiet;
 pthread_t threadKom, threadMon;

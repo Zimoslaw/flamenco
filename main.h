@@ -13,16 +13,17 @@
 #define TRUE 1
 #define FALSE 0
 #define SEC_IN_STATE 1
-#define MAX_STATE_CHANGES 10
+#define MAX_STATE_CHANGES 30
 
 #define ROOT 0
 
 extern int rank;
 extern int size;
 extern int lamport; // zegar lamporta
-extern Process* processQueue; // Kolejka procesów
+extern Process *processQueue; // Kolejka procesów
+extern Packet *packetQueue; // kolejka pakietów
 extern packet_t pakiet;
-typedef enum {Start, Wait, AddToQueue, Finish} state_t;
+typedef enum {Start, Wait, SendSync, AddToQueue, Finish} state_t;
 extern state_t stan;
 extern state_t prevStan;
 extern pthread_t threadKom, threadMon;
@@ -64,5 +65,11 @@ void changeState( state_t );
 void incLamport( int );
 
 void putProcess( Process**, int, int, int );
+
+void clearProcessQueue(Process**);
+
+void putPacket( Packet**, int, int, int, int );
+
+Packet getFirstPacket(Packet**);
 
 #endif
