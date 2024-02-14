@@ -35,6 +35,10 @@ typedef struct Packet
 #define FINISH 999
 #define REQ_SYNC 100
 #define SYNC 101
+#define REQ_ROOM 102
+#define IM_FIRST 103
+#define ACK 104
+#define RELEASE 105
 
 extern MPI_Datatype MPI_PAKIET_T;
 void inicjuj_typ_pakietu();
