@@ -3,6 +3,7 @@
 
 #define TANCERKA 0
 #define GITARZYSTA 1
+#define NUM_OF_TANCERKI 2
 #define ROOMS 4
 
 void mainLoop()
@@ -16,11 +17,9 @@ void mainLoop()
     Packet currentPacket; // obecnie odczytywany pakiet
 
     // losowanie typu postaci
-    int actorType = random()%100;
-    if (actorType >= 50)
-        actorType = TANCERKA;
-    else
-        actorType = GITARZYSTA;
+    int actorType = 1;
+    if (rank < NUM_OF_TANCERKI)
+        actorType = 0;
 
 
     if (actorType == TANCERKA) {
@@ -67,6 +66,8 @@ void mainLoop()
             // POCZĄTEK
             if (stan == Start) {
                 changes++;
+
+                room = -1;
 
                 println("Wysyłam żądanie o dane do wszystkich")
 
@@ -232,7 +233,6 @@ void mainLoop()
 
                 if (room != -1) {
                     println("Wychodzę z sali nr %d", room);
-                    room = -1;
                 }
 
                 changeState( Start );
