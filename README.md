@@ -6,15 +6,15 @@ W małej hiszpańskiej wioseczce mieszkają gitarzyści i tancerki flamenco. Od 
 
 Danych jest G gitarzytów i T tancerek. Najpierw muszą się dobrać w pary. Następnie ubiegają się o jedną z S rozróżnialnych sal. Później dają występ.
 
-## Specifying a number T, G and S
-Number ~T~ is set in file `watek_glowny.c` in definition `#define NUM_OF_TANCERKI`
+## Specifying numbers T, G and S
+Number *T* is set in file `watek_glowny.c` in definition `#define NUM_OF_TANCERKI`
 
-Number ~G~ is equal to SIZE-T. Where SIZE is the size of MPI domain (number of processes)
+Number *G* is equal to SIZE-T. Where SIZE is the size of MPI domain (number of processes)
 
-Number ~S~ is set in file `watek_glowny.c` in definition `#define ROOMS`
+Number *S* is set in file `watek_glowny.c` in definition `#define ROOMS`
 
 ## Run time
-Process runs in infinite loop. Process end when variable `changes` (`watek_glowny.c`) reaches `#define MAX_STATE_CHANGES` (`main.h`)
+Process runs in infinite loop. Process ends when variable `changes` (`watek_glowny.c`) reaches `#define MAX_STATE_CHANGES` (`main.h`)
 
 `changes` is incremented with each state change caused by received packet
 
