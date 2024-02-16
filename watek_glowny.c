@@ -3,7 +3,7 @@
 
 #define TANCERKA 0
 #define GITARZYSTA 1
-#define NUM_OF_TANCERKI 2
+#define NUM_OF_TANCERKI 4
 #define ROOMS 4
 
 void mainLoop()
@@ -13,6 +13,7 @@ void mainLoop()
     int changes = 0; // licznik zmian stanów
     int rooms[ROOMS] = {0, 0, 0, 0}; // sale
     int room = -1; // sala, w której się znajdujemy
+    int RSN = 0; // losowa liczba, według której są sortowane procesy
 
     Packet currentPacket; // obecnie odczytywany pakiet
 
@@ -67,19 +68,28 @@ void mainLoop()
             if (stan == Start) {
                 changes++;
 
-                room = -1;
+                // Losowanie liczby oznaczającej kolejność w kolejce
+                RSN = rand();
+                if (RSN % 2 == 0 && actorType == 1)
+                    RSN++;
+                if (RSN % 2 != 0 && actorType == 0)
+                    RSN--;
 
-                println("Wysyłam żądanie o dane do wszystkich")
+                println("Wysyłam żądanie o dane do wszystkich");
 
                 // Wysyłanie REQ_SYNC do wszytkich
                 for (int i = 0; i < size; i++) {
                     if (i == rank)
                         continue;
                     packet_t *pkt = malloc(sizeof(packet_t));
-                    pkt->data = actorType;
+                    pkt->data = RSN;
                     pkt->ts = ++lamport;
                     sendPacket(pkt, i, REQ_SYNC);
                 }
+
+                // Dodaj siebie do kolejki
+                putProcess(&processQueue, rank, RSN, actorType);
+
                 changeState( Wait );
 	        }
             // ODESYŁANIE INFORMACJ O SOBIE
@@ -87,7 +97,7 @@ void mainLoop()
                 changes++;
 
                 packet_t *pkt = malloc(sizeof(packet_t));
-                pkt->data = actorType;
+                pkt->data = RSN;
                 pkt->ts = ++lamport;
                 sendPacket(pkt, currentPacket.src, SYNC);
 
@@ -97,7 +107,7 @@ void mainLoop()
             if (stan == AddToQueue) {
                 changes++;
 
-                putProcess(&processQueue, currentPacket.src, currentPacket.ts, currentPacket.data);
+                putProcess(&processQueue, currentPacket.src, currentPacket.data, currentPacket.data%2);
                 debug("Dodałem proces %d do kolejki", currentPacket.src);
 
                 // Sprawdzanie czy kolejka jest zakończona
@@ -107,10 +117,15 @@ void mainLoop()
                     c++;
                     p = p->next;
                 }
-                if (c >= size - 1) { // Tworzenie kolejki zakończone
-                    // Dodaj siebie do kolejki
-                    putProcess(&processQueue, rank, lamport, actorType);
+                if (c >= size) { // Tworzenie kolejki zakończone
                     println("Kolejka stworzona");
+
+                    // Wyświetlanie lokalnej kolejki
+                    Process* p = processQueue; 
+                    while (p != NULL) {
+                        debug("[%d, %d, %d], ", p->id, p->ts, p->type);
+                        p = p->next;
+                    }
 
                     if (actorType == 0)
                         changeState( CheckIfFirst );
@@ -200,7 +215,7 @@ void mainLoop()
             // JESTEŚMY W SALI
             if (stan == InRoom) {
 
-                println("Wchodzę do sali nr %d", room);
+                println("Wchodzę do sali nr %d (moja para to %d)", room, currentPacket.src);
                 
                 if (actorType == 0) {
                     println("Wychodzę z sali nr %d", room);
@@ -217,6 +232,7 @@ void mainLoop()
                     
                     clearProcessQueue(&processQueue); // Wyczyszczenie kolejki procesów
                     rooms[room]--;
+                    // Nullowanie numeru zajętej sali
                     room = -1;
 
                     changeState( Start );
@@ -228,11 +244,15 @@ void mainLoop()
             }
             // ZWOLNIENIE SALI
             if (stan == Release) {
+                changes++;
+
                 clearProcessQueue(&processQueue); // Wyczyszczenie kolejki procesów
                 rooms[currentPacket.data]--;
 
                 if (room != -1) {
                     println("Wychodzę z sali nr %d", room);
+                    // Nullowanie numeru zajętej sali
+                    room = -1;
                 }
 
                 changeState( Start );
@@ -243,12 +263,6 @@ void mainLoop()
             }
         } else {
 	        changeState( Finish );
-            
-            Process* p = processQueue; 
-            while (p != NULL) {
-                debug("[%d, %d, %d], ", p->id, p->ts, p->type);
-                p = p->next;
-            }
         }
         sleep(SEC_IN_STATE);
     }

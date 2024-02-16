@@ -13,7 +13,7 @@
 #define TRUE 1
 #define FALSE 0
 #define SEC_IN_STATE 1
-#define MAX_STATE_CHANGES 50
+#define MAX_STATE_CHANGES 100
 
 #define ROOT 0
 
