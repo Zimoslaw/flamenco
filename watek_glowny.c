@@ -231,7 +231,6 @@ void mainLoop()
                     }
                     
                     clearProcessQueue(&processQueue); // Wyczyszczenie kolejki procesów
-                    rooms[room]--;
                     // Nullowanie numeru zajętej sali
                     room = -1;
 
