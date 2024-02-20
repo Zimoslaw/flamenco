@@ -33,8 +33,8 @@ typedef struct Packet
 
 /* Typy wiadomości */
 #define FINISH 999
-#define REQ_SYNC 100
-#define SYNC 101
+#define SYN 100
+#define SYNACK 101
 #define REQ_ROOM 102
 #define IM_FIRST 103
 #define ACK 104

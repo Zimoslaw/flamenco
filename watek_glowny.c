@@ -3,21 +3,20 @@
 
 #define TANCERKA 0
 #define GITARZYSTA 1
-#define NUM_OF_TANCERKI 4
+#define NUM_OF_TANCERKI 3
 #define ROOMS 4
 
 void mainLoop()
 {
     srandom(rank);
-    int tag;
-    int changes = 0; // licznik zmian stanów
+
     int rooms[ROOMS] = {0, 0, 0, 0}; // sale
     int room = -1; // sala, w której się znajdujemy
-    int RSN = 0; // losowa liczba, według której są sortowane procesy
+    int synAcks = 0; // liczba odebanych ACK. Do sprawdzania czy kolejka jest stworzona
 
     Packet currentPacket; // obecnie odczytywany pakiet
 
-    // losowanie typu postaci
+    // obliczanie typu postaci
     int actorType = 1;
     if (rank < NUM_OF_TANCERKI)
         actorType = 0;
@@ -30,18 +29,19 @@ void mainLoop()
     }
 
     while (stan != Finish) {
-        if (changes<MAX_STATE_CHANGES) {
+        if (lamport<MAX_LAMPORT) {
 
             // POBIERANIE DANYCH PAKIETU PIERWSZEGO W KOLEJCE
             if (stan != Start && packetQueue != NULL) {
                 currentPacket = getFirstPacket(&packetQueue);
 
+                // Zmiana stanu na podstawie pakietu
                 switch(currentPacket.tag) {
-                    case REQ_SYNC:
-                        changeState( SendSync );
+                    case SYN:
+                        changeState( SendSynAck );
                     break;
-                    case SYNC:
-                        changeState( AddToQueue );
+                    case SYNACK:
+                        changeState( CheckQueue );
                     break;
                     case REQ_ROOM:
                         changeState( RoomRequested );
@@ -59,68 +59,58 @@ void mainLoop()
                         changeState( Wait );
                     break;
                 }
-
-                lamport++;
-		        incLamport(currentPacket.ts); // inkrementacja zegara lamporta
             }
 
             // POCZĄTEK
             if (stan == Start) {
-                changes++;
 
-                // Losowanie liczby oznaczającej kolejność w kolejce
-                RSN = rand();
-                if (RSN % 2 == 0 && actorType == 1)
-                    RSN++;
-                if (RSN % 2 != 0 && actorType == 0)
-                    RSN--;
+                debug("{%d, %d, %d, %d}", rooms[0], rooms[1], rooms[2], rooms[3]);
 
-                println("Wysyłam żądanie o dane do wszystkich");
+                println("Wysyłam swoje dane do wszystkich");
 
-                // Wysyłanie REQ_SYNC do wszytkich
+                // Wysyłanie SYN do wszytkich
+                lamport++;
+                packet_t *pkt = malloc(sizeof(packet_t));
+                pkt->data = actorType;
+                pkt->ts = lamport;
+                pthread_mutex_lock( &stateMut );
                 for (int i = 0; i < size; i++) {
                     if (i == rank)
                         continue;
-                    packet_t *pkt = malloc(sizeof(packet_t));
-                    pkt->data = RSN;
-                    pkt->ts = ++lamport;
-                    sendPacket(pkt, i, REQ_SYNC);
+                    sendPacket(pkt, i, SYN);
                 }
 
                 // Dodaj siebie do kolejki
-                putProcess(&processQueue, rank, RSN, actorType);
+                putProcess(&processQueue, rank, pkt->ts, actorType);
+                pthread_mutex_unlock( &stateMut );
 
                 changeState( Wait );
 	        }
-            // ODESYŁANIE INFORMACJ O SOBIE
-            if (stan == SendSync) {
-                changes++;
+
+            // DODANIE PROCESU NADAWCY DO KOLEJKI
+            // ODESYŁANIE SYNACK
+            if (stan == SendSynAck) {
+
+                putProcess(&processQueue, currentPacket.src, currentPacket.ts, currentPacket.data);
+                debug("Dodałem proces %d do kolejki", currentPacket.src);
 
                 packet_t *pkt = malloc(sizeof(packet_t));
-                pkt->data = RSN;
+                pkt->data = actorType;
                 pkt->ts = ++lamport;
-                sendPacket(pkt, currentPacket.src, SYNC);
+                sendPacket(pkt, currentPacket.src, SYNACK);
 
                 changeState( Wait );
             } 
-            // DODANIE PROCESU ADRESATA DO KOLEJKI
-            if (stan == AddToQueue) {
-                changes++;
 
-                putProcess(&processQueue, currentPacket.src, currentPacket.data, currentPacket.data%2);
-                debug("Dodałem proces %d do kolejki", currentPacket.src);
+            // SPRAWDZANIE CZY KOLEJKA JEST STWORZONA
+            if (stan == CheckQueue) {
 
-                // Sprawdzanie czy kolejka jest zakończona
-                int c = 0;
-                Process* p = processQueue;
-                while(p != NULL) {
-                    c++;
-                    p = p->next;
-                }
-                if (c >= size) { // Tworzenie kolejki zakończone
+                synAcks++;
+
+                if (synAcks >= size - 1) { // Tworzenie kolejki zakończone
                     println("Kolejka stworzona");
 
-                    // Wyświetlanie lokalnej kolejki
+                    // Wyświetlanie lokalnej kolejki (debug)
                     Process* p = processQueue; 
                     while (p != NULL) {
                         debug("[%d, %d, %d], ", p->id, p->ts, p->type);
@@ -135,14 +125,15 @@ void mainLoop()
                 else
                     changeState( Wait );
             }
+
             // INKREMENTOWANIE ILOŚCI REQUESTÓW DO DANEJ SALI
             if (stan == RoomRequested) {
-                changes++;
 
-                rooms[currentPacket.data]++;
+                rooms[currentPacket.data] = 1;
 
                 changeState( Wait );
             }
+
             // SPRAWDZANIE CZY JESTEŚMY PIERWSZMI W KOLEJCE
             if (stan == CheckIfFirst) {
 
@@ -161,42 +152,53 @@ void mainLoop()
                     p = p->next;
                 }
             }
+
             // WYBIERANIE SALI, ROZSYŁANIE ŻĄDANIA O SALĘ
             // ODSYŁANIE ACK DO TANCERKI (GITARZYSTA)
             if (stan == First) {
                 if (actorType == 0) {
                     println("Jestem pierwszą tancerką");
+
                     // Losowanie pokoju
                     room = 0;
+                    int r = 0;
                     do {
+                        if (r > 10) // zabezpieczenie przed nieskończoną pętlą
+                            break;
                         room = random()%ROOMS;
+                        r++;
                     }
                     while(rooms[room] != 0);
 
-                    // Wysyłanie REQ_ROOM do tancerek
-                    println("Wysyłam żądania o %d salę", room);
-                    Process *p = processQueue;
-                    while(p != NULL) {
-                        if (p->type == 0 && p->id != rank) {
-                            packet_t *pkt = malloc(sizeof(packet_t));
-                            pkt->data = room;
-                            pkt->ts = ++lamport;
-                            sendPacket(pkt, p->id, REQ_ROOM);
+                    if (rooms[room] == 0) {
+                        rooms[room] = 1;
+                        // Wysyłanie REQ_ROOM do tancerek
+                        println("Wysyłam żądania o %d salę", room);
+                        lamport++;
+                        packet_t *pkt = malloc(sizeof(packet_t));
+                        pkt->data = room;
+                        pkt->ts = lamport;
+                        Process *p = processQueue;
+                        while(p != NULL) {
+                            if (p->type == 0 && p->id != rank) {
+                                sendPacket(pkt, p->id, REQ_ROOM);
+                            }
+                            p = p->next;
                         }
-                        p = p->next;
-                    }
 
-                    // Wysyłanie IM_FIRST do tancerek
-                    println("Wysyłam info, że jestem pierwsza do gitarzystów");
-                    p = processQueue;
-                    while(p != NULL) {
-                        if (p->type == 1) {
-                            packet_t *pkt = malloc(sizeof(packet_t));
-                            pkt->data = room;
-                            pkt->ts = ++lamport;
-                            sendPacket(pkt, p->id, IM_FIRST);
+                        // Wysyłanie IM_FIRST do tancerek
+                        println("Wysyłam info, że jestem pierwsza do gitarzystów");
+                        lamport++;
+                        pkt = malloc(sizeof(packet_t));
+                        pkt->data = room;
+                        pkt->ts = lamport;
+                        p = processQueue;
+                        while(p != NULL) {
+                            if (p->type == 1) {
+                                sendPacket(pkt, p->id, IM_FIRST);
+                            }
+                            p = p->next;
                         }
-                        p = p->next;
                     }
 
                     changeState( Wait );
@@ -216,24 +218,28 @@ void mainLoop()
             if (stan == InRoom) {
 
                 println("Wchodzę do sali nr %d (moja para to %d)", room, currentPacket.src);
+
+                // Przybywaj w sali przez losowy czas
+                sleep(random()%3+1);
                 
                 if (actorType == 0) {
                     println("Wychodzę z sali nr %d", room);
 
                     // Wysyłanie RELEASE do wszytkich
+                    lamport++;
+                    packet_t *pkt = malloc(sizeof(packet_t));
+                    pkt->data = room;
+                    pkt->ts = lamport;
                     for (int i = 0; i < size; i++) {
                         if (i == rank)
                             continue;
-                        packet_t *pkt = malloc(sizeof(packet_t));
-                        pkt->data = room;
-                        pkt->ts = ++lamport;
                         sendPacket(pkt, i, RELEASE);
                     }
                     
                     clearProcessQueue(&processQueue); // Wyczyszczenie kolejki procesów
-                    rooms[room]--;
-                    // Nullowanie numeru zajętej sali
-                    room = -1;
+                    rooms[room] = 0; // Czyszczenie zajętości sali
+                    synAcks = 0; // Zerowanie ilości potwierdzeń
+                    room = -1; // Nullowanie numeru zajętej sali
 
                     changeState( Start );
                 }
@@ -244,10 +250,10 @@ void mainLoop()
             }
             // ZWOLNIENIE SALI
             if (stan == Release) {
-                changes++;
 
                 clearProcessQueue(&processQueue); // Wyczyszczenie kolejki procesów
-                rooms[currentPacket.data]--;
+                rooms[currentPacket.data] = 0; // Czyszczenie zajętości sali
+                synAcks = 0; // Zerowanie ilości potwierdzeń
 
                 if (room != -1) {
                     println("Wychodzę z sali nr %d", room);
@@ -259,11 +265,12 @@ void mainLoop()
             }
             // CZEKANIE
             if (stan == Wait) {
-                changes++;
+                debug("Czekam");
             }
         } else {
 	        changeState( Finish );
         }
+        
         sleep(SEC_IN_STATE);
     }
 }

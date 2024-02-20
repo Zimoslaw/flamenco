@@ -5,7 +5,7 @@ MPI_Datatype MPI_PAKIET_T;
 struct tagNames_t{
     const char *name;
     int tag;
-} tagNames[] = { { "finish", FINISH}, { "REQ_SYNC", REQ_SYNC}, { "SYNC", SYNC}, { "REQ_ROOM", REQ_ROOM}, { "IM_FIRST", IM_FIRST}, {"ACK", ACK}, {"RELEASE", RELEASE}};
+} tagNames[] = { { "finish", FINISH}, { "SYN", SYN}, { "SYNACK", SYNACK}, { "REQ_ROOM", REQ_ROOM}, { "IM_FIRST", IM_FIRST}, {"ACK", ACK}, {"RELEASE", RELEASE}};
 
 const char const *tag2string( int tag )
 {

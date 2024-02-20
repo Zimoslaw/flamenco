@@ -13,7 +13,7 @@
 #define TRUE 1
 #define FALSE 0
 #define SEC_IN_STATE 1
-#define MAX_STATE_CHANGES 100
+#define MAX_LAMPORT 100
 
 #define ROOT 0
 
@@ -23,7 +23,7 @@ extern int lamport; // zegar lamporta
 extern Process *processQueue; // Kolejka procesów
 extern Packet *packetQueue; // kolejka pakietów
 extern packet_t pakiet;
-typedef enum {Start, Wait, SendSync, AddToQueue, RoomRequested, CheckIfFirst, First, InRoom, Release, Finish} state_t;
+typedef enum {Start, Wait, SendSynAck, CheckQueue, RoomRequested, CheckIfFirst, First, InRoom, Release, Finish} state_t;
 extern state_t stan;
 extern state_t prevStan;
 extern pthread_t threadKom, threadMon;
