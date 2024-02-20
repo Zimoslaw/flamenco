@@ -82,7 +82,7 @@ void putProcess(Process **queue, int pid, int timestamp, int type)
     
     Process *current = *queue;
 
-    if (p->ts < current->ts) {
+    if (p->ts > current->ts) {
         *queue = p;
         p->next = current;
         return;
@@ -91,7 +91,7 @@ void putProcess(Process **queue, int pid, int timestamp, int type)
         p->next = current;
         return;
     }
-    while (current->next != NULL && p->ts > current->next->ts) {
+    while (current->next != NULL && p->ts < current->next->ts) {
         current = current->next;
     }
     while (current->next != NULL && p->ts == current->next->ts && p->id > current->next->id) {

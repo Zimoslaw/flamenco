@@ -14,9 +14,7 @@ Number **G** is equal to SIZE-T. Where SIZE is the size of MPI domain (number of
 Number **S** is set in file `watek_glowny.c` in definition `#define ROOMS`
 
 ## Run time
-Process runs in infinite loop. Process ends when variable `changes` (`watek_glowny.c`) reaches `#define MAX_STATE_CHANGES` (`main.h`)
-
-`changes` is incremented with each state change caused by received packet
+Process runs in infinite loop. Process ends when local logical clock (`lamport` in `watek_glowny.c`) reaches `#define MAX_LAMPORT` (`main.h`)
 
 ## Compiling
 `make debug` for verbose version (debugging info).
